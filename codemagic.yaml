@@ -1,0 +1,41 @@
+workflows:
+  android-apk:
+    name: Android APK (Installable)
+    max_build_duration: 90
+    environment:
+      flutter: stable
+      vars:
+        API_BASE_URL: "https://universalpartnersdanismanlik.com/soru-cevap/backend/api/v1"
+    scripts:
+      - name: Ensure Android platform folders
+        script: |
+          set -e
+          echo "Ensuring android/ exists..."
+          if [ ! -d "android" ]; then
+            echo "android/ not found; generating with flutter create (will restore sources after)."
+            cp -f pubspec.yaml pubspec.yaml.bak
+            cp -f pubspec.lock pubspec.lock.bak || true
+            rm -rf lib.bak && cp -R lib lib.bak
+            rm -rf test.bak && [ -d test ] && cp -R test test.bak || true
+            flutter create . --platforms=android --org com.universalpartners.sorucevap --project-name soru_cevap_mobil
+            # ensure internet permission (some CI-generated templates may miss it)
+            MANIFEST="android/app/src/main/AndroidManifest.xml"
+            if [ -f "$MANIFEST" ]; then
+              if ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
+                echo "Injecting INTERNET permission into AndroidManifest.xml"
+                perl -0777 -i -pe 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"\/>\n    <application/s' "$MANIFEST"
+              fi
+            fi
+
+            # restore our app sources and deps config
+            rm -rf lib && mv lib.bak lib
+            mv -f pubspec.yaml.bak pubspec.yaml
+            [ -f pubspec.lock.bak ] && mv -f pubspec.lock.bak pubspec.lock || true
+            [ -d test.bak ] && rm -rf test && mv test.bak test || true
+          fi
+      - name: Pub get
+        script: flutter pub get
+      - name: Build release APK
+        script: flutter build apk --release --dart-define=API_BASE_URL=$API_BASE_URL
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk

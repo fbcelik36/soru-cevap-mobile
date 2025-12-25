@@ -1,0 +1,19 @@
+workflows:
+  ios-release:
+    name: iOS IPA (Release - Signing Required)
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      vars:
+        API_BASE_URL: "https://example.com/soru-cevap/api/v1"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.company.soruCevap
+    scripts:
+      - name: Pub get
+        script: flutter pub get
+      - name: Build IPA
+        script: flutter build ipa --release --dart-define=API_BASE_URL=$API_BASE_URL
+    artifacts:
+      - build/ios/ipa/*.ipa
